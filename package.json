@@ -1,0 +1,32 @@
+{
+  "name": "voiz",
+  "version": "1.0.0",
+  "main": "expo-router/entry",
+  "scripts": {
+    "start": "expo start",
+    "android": "expo start --android",
+    "ios": "expo start --ios"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.32.1",
+    "@expo/vector-icons": "^14.0.2",
+    "expo": "~55.0.0",
+    "expo-av": "~16.0.0",
+    "expo-file-system": "~55.0.0",
+    "expo-router": "~55.0.0",
+    "expo-secure-store": "~55.0.0",
+    "expo-sqlite": "~55.0.0",
+    "expo-status-bar": "~55.0.0",
+    "react": "19.2.6",
+    "react-native": "0.85.3",
+    "react-native-reanimated": "~3.19.5",
+    "react-native-safe-area-context": "^5.0.0",
+    "react-native-screens": "^4.0.0",
+    "zustand": "^5.0.2"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.25.2",
+    "@types/react": "^19.0.0",
+    "typescript": "~5.8.0"
+  }
+}

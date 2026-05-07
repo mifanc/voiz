@@ -1,0 +1,165 @@
+import * as SQLite from 'expo-sqlite';
+import type { Recording, Note, ActionItem, Todo, NoteDetail } from '../types';
+
+let _db: SQLite.SQLiteDatabase | null = null;
+
+async function getDb(): Promise<SQLite.SQLiteDatabase> {
+  if (!_db) {
+    _db = await SQLite.openDatabaseAsync('voiz.db');
+    await _db.execAsync(`
+      CREATE TABLE IF NOT EXISTS recordings (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        title TEXT NOT NULL DEFAULT 'New Recording',
+        file_path TEXT NOT NULL,
+        duration_ms INTEGER NOT NULL DEFAULT 0,
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        processed_at TEXT
+      );
+      CREATE TABLE IF NOT EXISTS notes (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        recording_id INTEGER NOT NULL,
+        summary TEXT NOT NULL DEFAULT '',
+        raw_transcript TEXT NOT NULL DEFAULT '',
+        created_at TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+      CREATE TABLE IF NOT EXISTS action_items (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        recording_id INTEGER NOT NULL,
+        text TEXT NOT NULL,
+        urgency INTEGER NOT NULL DEFAULT 3,
+        completed INTEGER NOT NULL DEFAULT 0,
+        created_at TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+      CREATE TABLE IF NOT EXISTS todos (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        recording_id INTEGER NOT NULL,
+        text TEXT NOT NULL,
+        urgency INTEGER NOT NULL DEFAULT 3,
+        completed INTEGER NOT NULL DEFAULT 0,
+        created_at TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+    `);
+  }
+  return _db;
+}
+
+export async function insertRecording(filePath: string, durationMs: number): Promise<number> {
+  const db = await getDb();
+  const result = await db.runAsync(
+    'INSERT INTO recordings (file_path, duration_ms) VALUES (?, ?)',
+    filePath,
+    durationMs,
+  );
+  return result.lastInsertRowId;
+}
+
+export async function finaliseRecording(
+  id: number,
+  title: string,
+): Promise<void> {
+  const db = await getDb();
+  await db.runAsync(
+    "UPDATE recordings SET title = ?, processed_at = datetime('now') WHERE id = ?",
+    title,
+    id,
+  );
+}
+
+export async function getAllRecordings(): Promise<Recording[]> {
+  const db = await getDb();
+  return db.getAllAsync<Recording>('SELECT * FROM recordings ORDER BY created_at DESC');
+}
+
+export async function deleteRecording(id: number): Promise<void> {
+  const db = await getDb();
+  await db.runAsync('DELETE FROM action_items WHERE recording_id = ?', id);
+  await db.runAsync('DELETE FROM todos WHERE recording_id = ?', id);
+  await db.runAsync('DELETE FROM notes WHERE recording_id = ?', id);
+  await db.runAsync('DELETE FROM recordings WHERE id = ?', id);
+}
+
+export async function insertNote(
+  recordingId: number,
+  summary: string,
+  transcript: string,
+): Promise<void> {
+  const db = await getDb();
+  await db.runAsync(
+    'INSERT INTO notes (recording_id, summary, raw_transcript) VALUES (?, ?, ?)',
+    recordingId,
+    summary,
+    transcript,
+  );
+}
+
+export async function insertActionItem(
+  recordingId: number,
+  text: string,
+  urgency: number,
+): Promise<void> {
+  const db = await getDb();
+  await db.runAsync(
+    'INSERT INTO action_items (recording_id, text, urgency) VALUES (?, ?, ?)',
+    recordingId,
+    text,
+    urgency,
+  );
+}
+
+export async function insertTodo(
+  recordingId: number,
+  text: string,
+  urgency: number,
+): Promise<void> {
+  const db = await getDb();
+  await db.runAsync(
+    'INSERT INTO todos (recording_id, text, urgency) VALUES (?, ?, ?)',
+    recordingId,
+    text,
+    urgency,
+  );
+}
+
+export async function getNoteDetail(recordingId: number): Promise<NoteDetail | null> {
+  const db = await getDb();
+  const note = await db.getFirstAsync<Note>(
+    'SELECT * FROM notes WHERE recording_id = ?',
+    recordingId,
+  );
+  if (!note) return null;
+
+  type RawActionItem = Omit<ActionItem, 'completed'> & { completed: number };
+  type RawTodo = Omit<Todo, 'completed'> & { completed: number };
+
+  const actionItems = await db.getAllAsync<RawActionItem>(
+    'SELECT * FROM action_items WHERE recording_id = ? ORDER BY urgency DESC, created_at ASC',
+    recordingId,
+  );
+  const todos = await db.getAllAsync<RawTodo>(
+    'SELECT * FROM todos WHERE recording_id = ? ORDER BY urgency DESC, created_at ASC',
+    recordingId,
+  );
+
+  return {
+    note,
+    actionItems: actionItems.map((a) => ({ ...a, completed: Boolean(a.completed) })),
+    todos: todos.map((t) => ({ ...t, completed: Boolean(t.completed) })),
+  };
+}
+
+export async function toggleActionItem(id: number, completed: boolean): Promise<void> {
+  const db = await getDb();
+  await db.runAsync('UPDATE action_items SET completed = ? WHERE id = ?', completed ? 1 : 0, id);
+}
+
+export async function toggleTodo(id: number, completed: boolean): Promise<void> {
+  const db = await getDb();
+  await db.runAsync('UPDATE todos SET completed = ? WHERE id = ?', completed ? 1 : 0, id);
+}
+
+export async function clearAllData(): Promise<void> {
+  const db = await getDb();
+  await db.execAsync(
+    'DELETE FROM todos; DELETE FROM action_items; DELETE FROM notes; DELETE FROM recordings;',
+  );
+}
