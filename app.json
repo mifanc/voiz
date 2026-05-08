@@ -18,7 +18,9 @@
         "backgroundColor": "#f8fafc"
       },
       "package": "com.voiz.app",
-      "permissions": ["android.permission.RECORD_AUDIO"]
+      "permissions": [
+        "android.permission.RECORD_AUDIO"
+      ]
     },
     "plugins": [
       "expo-router",
@@ -28,7 +30,8 @@
           "microphonePermission": "Allow Voiz to access your microphone to record conversations."
         }
       ],
-      "expo-secure-store"
+      "expo-secure-store",
+      "expo-sqlite"
     ],
     "experiments": {
       "typedRoutes": true
