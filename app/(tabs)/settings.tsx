@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Alert,
   Pressable,
@@ -13,13 +13,39 @@ import {
 import * as SecureStore from 'expo-secure-store';
 import { useRecordingStore } from '../../src/stores/useRecordingStore';
 import { clearAllData } from '../../src/services/database';
+import { downloadModel, isModelDownloaded } from '../../src/services/whisperManager';
 
 const API_KEY_STORE = 'anthropic_api_key';
+
+type ModelStatus = 'checking' | 'none' | 'downloading' | 'ready';
 
 export default function SettingsScreen() {
   const { aiMode, apiKey, setAiMode, setApiKey, setRecordings } = useRecordingStore();
   const [keyDraft, setKeyDraft] = useState(apiKey);
   const [keySaved, setKeySaved] = useState(false);
+  const [whisperStatus, setWhisperStatus] = useState<ModelStatus>('checking');
+  const [downloadPct, setDownloadPct] = useState(0);
+  const downloadingRef = useRef(false);
+
+  useEffect(() => {
+    isModelDownloaded().then((ready) => setWhisperStatus(ready ? 'ready' : 'none'));
+  }, []);
+
+  const handleDownloadWhisper = async () => {
+    if (downloadingRef.current) return;
+    downloadingRef.current = true;
+    setWhisperStatus('downloading');
+    setDownloadPct(0);
+    try {
+      await downloadModel((pct) => setDownloadPct(pct));
+      setWhisperStatus('ready');
+    } catch {
+      setWhisperStatus('none');
+      Alert.alert('Download failed', 'Check your internet connection and try again.');
+    } finally {
+      downloadingRef.current = false;
+    }
+  };
 
   const handleSaveKey = async () => {
     await SecureStore.setItemAsync(API_KEY_STORE, keyDraft);
@@ -96,21 +122,39 @@ export default function SettingsScreen() {
         <Text style={styles.section}>Models</Text>
         <View style={styles.card}>
           <View style={styles.modelRow}>
-            <View>
+            <View style={styles.modelInfo}>
               <Text style={styles.rowTitle}>Whisper (Transcription)</Text>
               <Text style={styles.rowSub}>whisper-base.en · ~74 MB</Text>
+              {whisperStatus === 'downloading' && (
+                <View style={styles.progressTrack}>
+                  <View style={[styles.progressFill, { width: `${downloadPct}%` }]} />
+                </View>
+              )}
             </View>
-            <Text style={styles.notReady}>Phase 2</Text>
+            {whisperStatus === 'checking' && (
+              <Text style={styles.notReady}>···</Text>
+            )}
+            {whisperStatus === 'none' && (
+              <Pressable style={styles.downloadBtn} onPress={handleDownloadWhisper}>
+                <Text style={styles.downloadBtnText}>Download</Text>
+              </Pressable>
+            )}
+            {whisperStatus === 'downloading' && (
+              <Text style={styles.progressPct}>{downloadPct}%</Text>
+            )}
+            {whisperStatus === 'ready' && (
+              <Text style={styles.ready}>Ready</Text>
+            )}
           </View>
           <View style={[styles.modelRow, styles.divider]}>
-            <View>
+            <View style={styles.modelInfo}>
               <Text style={styles.rowTitle}>Phi-3 Mini (Notes)</Text>
               <Text style={styles.rowSub}>Q4 GGUF · ~2.2 GB</Text>
             </View>
             <Text style={styles.notReady}>Phase 3</Text>
           </View>
         </View>
-        <Text style={styles.hint}>Model downloads will be available in the next update.</Text>
+        <Text style={styles.hint}>Whisper runs fully on-device — audio never leaves your phone.</Text>
 
         <Text style={styles.section}>Data</Text>
         <View style={styles.card}>
@@ -161,9 +205,32 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: 16,
+    gap: 12,
   },
+  modelInfo: { flex: 1 },
   divider: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: '#f1f5f9' },
   notReady: { fontSize: 12, color: '#94a3b8', fontWeight: '600' },
+  ready: { fontSize: 12, color: '#22c55e', fontWeight: '700' },
+  downloadBtn: {
+    backgroundColor: '#6366f1',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  downloadBtnText: { color: '#fff', fontSize: 13, fontWeight: '600' },
+  progressPct: { fontSize: 13, color: '#6366f1', fontWeight: '600', minWidth: 36, textAlign: 'right' },
+  progressTrack: {
+    height: 4,
+    backgroundColor: '#e2e8f0',
+    borderRadius: 2,
+    marginTop: 8,
+    overflow: 'hidden',
+  },
+  progressFill: {
+    height: '100%',
+    backgroundColor: '#6366f1',
+    borderRadius: 2,
+  },
   hint: { fontSize: 13, color: '#94a3b8', marginTop: 8, marginLeft: 4 },
   input: {
     fontSize: 15,
