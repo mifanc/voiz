@@ -42,8 +42,10 @@ Audio file (.m4a)
 ### Key API Constraints
 
 - **expo-file-system**: import from `expo-file-system/legacy`, not `expo-file-system`. The v55 top-level module is a new API; the legacy module has `documentDirectory`, `moveAsync`, `makeDirectoryAsync`, `deleteAsync`.
-- **react-native-reanimated**: v3.19.5 (not v4). Babel plugin `react-native-reanimated/plugin` must remain the last plugin in `babel.config.js`. v4 requires a separate `react-native-worklets` package and has breaking API changes.
+- **react-native-reanimated**: v4.2.3 + **react-native-worklets** v0.7.4 (required peer dep). Babel plugin `react-native-reanimated/plugin` remains last in `babel.config.js` — in v4 it re-exports from `react-native-worklets/plugin` automatically.
+- **react-native**: pinned to 0.83.6 (expo SDK 55 requirement; 0.85.x breaks reanimated v4 peer dep check).
 - **expo-sqlite v55**: async-only API — `openDatabaseAsync`, `runAsync`, `getAllAsync`, `getFirstAsync`, `execAsync`. No synchronous methods.
+- **expo-av compatibility shims**: expo-av@16 uses ObjC headers/macros removed from expo-modules-core@55. Three stub `.h` files and macro additions in `node_modules/expo-modules-core/ios/` keep it buildable — these are in node_modules and not committed; re-apply if you wipe node_modules and the iOS build fails on `EXEventEmitter.h` or `EXFatal`.
 
 ### Navigation
 
