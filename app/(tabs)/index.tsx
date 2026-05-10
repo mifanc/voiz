@@ -199,19 +199,19 @@ export default function LibraryScreen() {
             )}
           </View>
 
-          <View style={styles.waveformWrap}>
-            <Waveform levels={levels} />
+          {/* Everything centred as one unit */}
+          <View style={styles.content}>
+            <View style={styles.waveformWrap}>
+              <Waveform levels={levels} />
+            </View>
+            <Text style={[styles.timer, !isRecording && styles.timerHidden]}>
+              {formatElapsed(elapsedMs)}
+            </Text>
+            <RecordButton isRecording={isRecording} onPress={handleRecordToggle} />
+            <Text style={styles.hint}>
+              {isRecording ? 'Tap to stop' : 'Tap to record'}
+            </Text>
           </View>
-
-          <Text style={[styles.timer, !isRecording && styles.timerHidden]}>
-            {formatElapsed(elapsedMs)}
-          </Text>
-
-          <RecordButton isRecording={isRecording} onPress={handleRecordToggle} />
-
-          <Text style={styles.hint}>
-            {isRecording ? 'Tap to stop' : 'Tap to record'}
-          </Text>
         </View>
       </Modal>
     </SafeAreaView>
@@ -251,18 +251,15 @@ const styles = StyleSheet.create({
   sheet: {
     flex: 1,
     backgroundColor: '#f8fafc',
-    paddingHorizontal: 28,
     paddingTop: 20,
     paddingBottom: 48,
-    alignItems: 'center',
   },
   sheetTop: {
-    width: '100%',
     flexDirection: 'row',
     justifyContent: 'flex-end',
-    height: 40,
+    paddingHorizontal: 28,
+    height: 44,
     alignItems: 'center',
-    marginBottom: 8,
   },
   closeBtn: {
     width: 32,
@@ -293,22 +290,30 @@ const styles = StyleSheet.create({
     color: '#ef4444',
     letterSpacing: 1.2,
   },
-  waveformWrap: { flex: 1, justifyContent: 'center', width: '100%' },
+  content: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 28,
+    gap: 4,
+  },
+  waveformWrap: {
+    width: '100%',
+    marginBottom: 12,
+  },
   timer: {
-    fontSize: 56,
+    fontSize: 52,
     fontWeight: '200',
     color: '#0f172a',
     textAlign: 'center',
     letterSpacing: 2,
-    marginBottom: 4,
   },
   timerHidden: { opacity: 0 },
   hint: {
     fontSize: 13,
     color: '#94a3b8',
     textAlign: 'center',
-    marginTop: 10,
-    marginBottom: 8,
+    marginTop: 4,
     letterSpacing: 0.3,
   },
 });

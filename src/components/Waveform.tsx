@@ -8,7 +8,7 @@ interface Props {
 const MAX_BARS = 50;
 const MIN_DB = -60;
 const MAX_HEIGHT = 90;
-const MIN_HEIGHT = 3;
+const MIN_HEIGHT = 10;
 
 function normalize(db: number): number {
   return Math.max(0, Math.min(1, (db - MIN_DB) / (0 - MIN_DB)));
