@@ -118,8 +118,12 @@ export default function SettingsScreen() {
           <>
             <Text style={styles.section}>Anthropic API Key</Text>
             <View style={styles.card}>
+              <View style={styles.cloudModelRow}>
+                <Text style={styles.rowTitle}>Model</Text>
+                <Text style={styles.cloudModel}>claude-haiku-4-5</Text>
+              </View>
               <TextInput
-                style={styles.input}
+                style={[styles.input, styles.divider]}
                 value={keyDraft}
                 onChangeText={setKeyDraft}
                 placeholder="sk-ant-..."
@@ -272,12 +276,17 @@ const styles = StyleSheet.create({
     borderRadius: 2,
   },
   hint: { fontSize: 13, color: '#94a3b8', marginTop: 8, marginLeft: 4 },
+  cloudModelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 16,
+  },
+  cloudModel: { fontSize: 13, color: '#6366f1', fontWeight: '600' },
   input: {
     fontSize: 15,
     color: '#0f172a',
     padding: 16,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#f1f5f9',
   },
   saveBtn: {
     margin: 12,

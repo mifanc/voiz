@@ -1,25 +1,11 @@
+import Anthropic from '@anthropic-ai/sdk';
 import type { AiMode, AudioFeatures } from '../types';
 import { getLlamaContext, isLlamaModelDownloaded } from './llamaManager';
 
-export interface GeneratedNote {
-  summary: string;
-  title: string;
-  actionItems: Array<{ text: string; urgency: number }>;
-  todos: Array<{ text: string; urgency: number }>;
-}
+const CLOUD_MODEL = 'claude-haiku-4-5-20251001';
 
-export function buildPrompt(transcript: string, features: AudioFeatures): string {
-  return `You are a meeting assistant. Given a transcript and audio analysis, output ONLY valid JSON with no markdown fences.
-
-AUDIO ANALYSIS:
-- Speech rate: ${features.wpm} wpm (normal 130–150; fast >160 signals urgency)
-- Pause ratio: ${features.pauseRatio}% silence (relaxed >20%, urgent <10%)
-- Amplitude variance: ${features.ampVariance} dB (higher = more dynamic/emotional delivery)
-- Vocal energy peaks: ${features.peakRatio}% of recording above loud threshold
-- Audio urgency signal: ${features.audioUrgency.toFixed(2)} / 1.0 (0 = calm, 1 = high pressure)
-
-TRANSCRIPT:
-${transcript}
+// Stable instructions — cached across calls within the same session
+const SYSTEM_PROMPT = `You are a meeting assistant. Given a transcript and audio analysis, output ONLY valid JSON with no markdown fences.
 
 Output this exact JSON shape:
 {
@@ -31,6 +17,30 @@ Output this exact JSON shape:
 
 Urgency: 1=low, 2=minor, 3=normal, 4=high, 5=critical.
 Combine audio signals and language cues to score urgency accurately.`;
+
+export interface GeneratedNote {
+  summary: string;
+  title: string;
+  actionItems: Array<{ text: string; urgency: number }>;
+  todos: Array<{ text: string; urgency: number }>;
+}
+
+// Full prompt for on-device LLM (single-turn, instructions + data combined)
+export function buildPrompt(transcript: string, features: AudioFeatures): string {
+  return `${SYSTEM_PROMPT}\n\n${buildUserMessage(transcript, features)}`;
+}
+
+// Dynamic part only — used as the user message in the cloud path
+function buildUserMessage(transcript: string, features: AudioFeatures): string {
+  return `AUDIO ANALYSIS:
+- Speech rate: ${features.wpm} wpm (normal 130–150; fast >160 signals urgency)
+- Pause ratio: ${features.pauseRatio}% silence (relaxed >20%, urgent <10%)
+- Amplitude variance: ${features.ampVariance} dB (higher = more dynamic/emotional delivery)
+- Vocal energy peaks: ${features.peakRatio}% of recording above loud threshold
+- Audio urgency signal: ${features.audioUrgency.toFixed(2)} / 1.0 (0 = calm, 1 = high pressure)
+
+TRANSCRIPT:
+${transcript}`;
 }
 
 const EMPTY_NOTE: GeneratedNote = { title: 'New Recording', summary: '', actionItems: [], todos: [] };
@@ -65,7 +75,7 @@ export async function generateNote(
   transcript: string,
   features: AudioFeatures,
   mode: AiMode,
-  _apiKey?: string,
+  apiKey?: string,
 ): Promise<GeneratedNote> {
   if (!transcript.trim()) return EMPTY_NOTE;
 
@@ -82,6 +92,22 @@ export async function generateNote(
     return parseNote(result.text);
   }
 
-  // Phase 5: cloud branch using @anthropic-ai/sdk
-  return EMPTY_NOTE;
+  if (!apiKey?.trim()) return EMPTY_NOTE;
+
+  const client = new Anthropic({ apiKey, dangerouslyAllowBrowser: true });
+  const response = await client.messages.create({
+    model: CLOUD_MODEL,
+    max_tokens: 1024,
+    system: [
+      {
+        type: 'text',
+        text: SYSTEM_PROMPT,
+        cache_control: { type: 'ephemeral' },
+      },
+    ],
+    messages: [{ role: 'user', content: buildUserMessage(transcript, features) }],
+  });
+
+  const block = response.content[0];
+  return block.type === 'text' ? parseNote(block.text) : EMPTY_NOTE;
 }
