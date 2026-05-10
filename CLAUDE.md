@@ -46,6 +46,7 @@ Audio file (.m4a)
 - **react-native**: pinned to 0.83.6 (expo SDK 55 requirement; 0.85.x breaks reanimated v4 peer dep check).
 - **expo-sqlite v55**: async-only API — `openDatabaseAsync`, `runAsync`, `getAllAsync`, `getFirstAsync`, `execAsync`. No synchronous methods.
 - **expo-av compatibility shims**: expo-av@16 uses ObjC headers/macros removed from expo-modules-core@55. Three stub `.h` files and macro additions in `node_modules/expo-modules-core/ios/` keep it buildable — these are in node_modules and not committed; re-apply if you wipe node_modules and the iOS build fails on `EXEventEmitter.h` or `EXFatal`.
+- **EXPermissionsService shim**: SDK 55 dropped auto-registration of `EXPermissionsService`, breaking `Audio.requestPermissionsAsync()` at runtime ("Permissions module not found"). Fix: patch `node_modules/expo-modules-core/ios/Legacy/Services/Permissions/EXPermissionsService.h` to add `<EXInternalModule>` conformance, and patch `EXPermissionsService.m` to add `EX_REGISTER_MODULE()` + `+(NSArray<Protocol*>*)exportedInterfaces { return @[@protocol(EXPermissionsInterface)]; }`. Not committed; re-apply after wiping node_modules.
 
 ### Navigation
 
