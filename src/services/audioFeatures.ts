@@ -12,7 +12,7 @@ export function extractAudioFeatures(
   meteringData: number[],
 ): AudioFeatures {
   if (segments.length === 0 || totalDurationMs === 0) {
-    return { wpm: 0, pauseRatio: 0, ampVariance: 0 };
+    return { wpm: 0, pauseRatio: 0, ampVariance: 0, peakRatio: 0, audioUrgency: 0 };
   }
 
   const durationMin = totalDurationMs / 60_000;
@@ -27,12 +27,24 @@ export function extractAudioFeatures(
   const pauseRatio = Math.round((silenceMs / totalDurationMs) * 100);
 
   let ampVariance = 0;
+  let peakRatio = 0;
   if (meteringData.length > 0) {
     const mean = meteringData.reduce((a, b) => a + b, 0) / meteringData.length;
     const variance =
       meteringData.reduce((sum, v) => sum + (v - mean) ** 2, 0) / meteringData.length;
     ampVariance = Math.round(Math.sqrt(variance));
+    // Fraction of samples above -20 dBFS — emphatic or loud speech
+    peakRatio = Math.round(
+      (meteringData.filter((v) => v > -20).length / meteringData.length) * 100,
+    );
   }
 
-  return { wpm, pauseRatio, ampVariance };
+  // Combine signals into a 0.0–1.0 urgency score (purely from audio, before LLM)
+  const wpmFactor = Math.min(wpm / 180, 1.0);             // 180+ wpm = max
+  const pauseFactor = Math.max(0, 1 - pauseRatio / 40);   // 0% pause = max, 40%+ = 0
+  const peakFactor = Math.min(peakRatio / 40, 1.0);       // 40%+ loud samples = max
+  const audioUrgency =
+    Math.round((wpmFactor * 0.4 + pauseFactor * 0.35 + peakFactor * 0.25) * 100) / 100;
+
+  return { wpm, pauseRatio, ampVariance, peakRatio, audioUrgency };
 }

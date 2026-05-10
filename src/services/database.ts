@@ -1,5 +1,5 @@
 import * as SQLite from 'expo-sqlite';
-import type { Recording, Note, ActionItem, Todo, NoteDetail } from '../types';
+import type { AudioFeatures, Recording, Note, ActionItem, Todo, NoteDetail } from '../types';
 
 let _db: SQLite.SQLiteDatabase | null = null;
 
@@ -39,6 +39,16 @@ async function getDb(): Promise<SQLite.SQLiteDatabase> {
         created_at TEXT NOT NULL DEFAULT (datetime('now'))
       );
     `);
+    // Phase 4 migrations: audio feature columns on existing notes rows default to 0
+    for (const sql of [
+      'ALTER TABLE notes ADD COLUMN wpm INTEGER NOT NULL DEFAULT 0',
+      'ALTER TABLE notes ADD COLUMN pause_ratio INTEGER NOT NULL DEFAULT 0',
+      'ALTER TABLE notes ADD COLUMN amp_variance INTEGER NOT NULL DEFAULT 0',
+      'ALTER TABLE notes ADD COLUMN peak_ratio INTEGER NOT NULL DEFAULT 0',
+      'ALTER TABLE notes ADD COLUMN audio_urgency REAL NOT NULL DEFAULT 0',
+    ]) {
+      try { await _db.runAsync(sql); } catch {}
+    }
   }
   return _db;
 }
@@ -82,13 +92,21 @@ export async function insertNote(
   recordingId: number,
   summary: string,
   transcript: string,
+  features?: AudioFeatures,
 ): Promise<void> {
   const db = await getDb();
   await db.runAsync(
-    'INSERT INTO notes (recording_id, summary, raw_transcript) VALUES (?, ?, ?)',
+    `INSERT INTO notes
+       (recording_id, summary, raw_transcript, wpm, pause_ratio, amp_variance, peak_ratio, audio_urgency)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
     recordingId,
     summary,
     transcript,
+    features?.wpm ?? 0,
+    features?.pauseRatio ?? 0,
+    features?.ampVariance ?? 0,
+    features?.peakRatio ?? 0,
+    features?.audioUrgency ?? 0,
   );
 }
 

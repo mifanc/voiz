@@ -15,6 +15,11 @@ export interface Note {
   summary: string;
   raw_transcript: string;
   created_at: string;
+  wpm: number;
+  pause_ratio: number;
+  amp_variance: number;
+  peak_ratio: number;
+  audio_urgency: number;
 }
 
 export interface ActionItem {
@@ -45,4 +50,6 @@ export interface AudioFeatures {
   wpm: number;
   pauseRatio: number;
   ampVariance: number;
+  peakRatio: number;
+  audioUrgency: number;
 }

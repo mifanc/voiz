@@ -15,13 +15,59 @@ import { Ionicons } from '@expo/vector-icons';
 import { ActionItemRow } from '../../src/components/ActionItem';
 import { getNoteDetail, toggleActionItem, toggleTodo } from '../../src/services/database';
 import { useRecordingStore } from '../../src/stores/useRecordingStore';
-import type { NoteDetail } from '../../src/types';
+import type { Note, NoteDetail } from '../../src/types';
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <View style={styles.section}>
       <Text style={styles.sectionTitle}>{title}</Text>
       <View style={styles.sectionBody}>{children}</View>
+    </View>
+  );
+}
+
+function MetricCell({
+  label,
+  value,
+  badge,
+  badgeColor,
+}: {
+  label: string;
+  value: string;
+  badge: string;
+  badgeColor: string;
+}) {
+  return (
+    <View style={styles.metricCell}>
+      <Text style={styles.metricLabel}>{label}</Text>
+      <Text style={styles.metricValue}>{value}</Text>
+      <View style={[styles.metricBadge, { backgroundColor: badgeColor + '22' }]}>
+        <Text style={[styles.metricBadgeText, { color: badgeColor }]}>{badge}</Text>
+      </View>
+    </View>
+  );
+}
+
+function VoiceAnalysis({ note }: { note: Note }) {
+  const paceBadge = note.wpm < 110 ? 'Slow' : note.wpm > 160 ? 'Fast' : 'Normal';
+  const paceColor = note.wpm > 160 ? '#ef4444' : note.wpm < 110 ? '#64748b' : '#22c55e';
+
+  const pauseBadge = note.pause_ratio < 10 ? 'Rushed' : note.pause_ratio > 25 ? 'Relaxed' : 'Normal';
+  const pauseColor = note.pause_ratio < 10 ? '#ef4444' : note.pause_ratio > 25 ? '#22c55e' : '#6366f1';
+
+  const peakBadge = note.peak_ratio > 40 ? 'High' : note.peak_ratio > 15 ? 'Moderate' : 'Low';
+  const peakColor = note.peak_ratio > 40 ? '#f59e0b' : note.peak_ratio > 15 ? '#6366f1' : '#64748b';
+
+  const urgencyScore = Math.round(note.audio_urgency * 10);
+  const urgencyBadge = note.audio_urgency > 0.6 ? 'High' : note.audio_urgency > 0.35 ? 'Medium' : 'Low';
+  const urgencyColor = note.audio_urgency > 0.6 ? '#ef4444' : note.audio_urgency > 0.35 ? '#f59e0b' : '#22c55e';
+
+  return (
+    <View style={styles.metricsGrid}>
+      <MetricCell label="Pace" value={`${note.wpm} wpm`} badge={paceBadge} badgeColor={paceColor} />
+      <MetricCell label="Pauses" value={`${note.pause_ratio}% silence`} badge={pauseBadge} badgeColor={pauseColor} />
+      <MetricCell label="Energy peaks" value={`${note.peak_ratio}%`} badge={peakBadge} badgeColor={peakColor} />
+      <MetricCell label="Urgency signal" value={`${urgencyScore}/10`} badge={urgencyBadge} badgeColor={urgencyColor} />
     </View>
   );
 }
@@ -130,6 +176,12 @@ export default function NoteScreen() {
               </Section>
             ) : null}
 
+            {detail.note.wpm > 0 && (
+              <Section title="Voice Analysis">
+                <VoiceAnalysis note={detail.note} />
+              </Section>
+            )}
+
             {detail.actionItems.length > 0 && (
               <Section title="Action Items">
                 {detail.actionItems.map((item) => (
@@ -209,4 +261,39 @@ const styles = StyleSheet.create({
   },
   errorText: { fontSize: 16, color: '#94a3b8' },
   emptyText: { fontSize: 15, color: '#94a3b8' },
+  metricsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+  metricCell: {
+    flex: 1,
+    minWidth: '44%',
+    backgroundColor: '#f8fafc',
+    borderRadius: 10,
+    padding: 12,
+    gap: 4,
+  },
+  metricLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#94a3b8',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  metricValue: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#0f172a',
+  },
+  metricBadge: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 20,
+  },
+  metricBadgeText: {
+    fontSize: 11,
+    fontWeight: '600',
+  },
 });

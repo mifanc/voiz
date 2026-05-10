@@ -12,9 +12,11 @@ export function buildPrompt(transcript: string, features: AudioFeatures): string
   return `You are a meeting assistant. Given a transcript and audio analysis, output ONLY valid JSON with no markdown fences.
 
 AUDIO ANALYSIS:
-- Speech rate: ${features.wpm} words per minute (normal: 130–150 wpm)
+- Speech rate: ${features.wpm} wpm (normal 130–150; fast >160 signals urgency)
 - Pause ratio: ${features.pauseRatio}% silence (relaxed >20%, urgent <10%)
-- Amplitude variance: ${features.ampVariance} (high = emotional intensity)
+- Amplitude variance: ${features.ampVariance} dB (higher = more dynamic/emotional delivery)
+- Vocal energy peaks: ${features.peakRatio}% of recording above loud threshold
+- Audio urgency signal: ${features.audioUrgency.toFixed(2)} / 1.0 (0 = calm, 1 = high pressure)
 
 TRANSCRIPT:
 ${transcript}

@@ -48,7 +48,7 @@ async function runAiPipeline(
     const { text, segments } = await transcribe(uri);
     const features = extractAudioFeatures(segments, durationMs, meteringData);
     const note = await generateNote(text, features, aiMode, apiKey);
-    await insertNote(recordingId, note.summary, text);
+    await insertNote(recordingId, note.summary, text, features);
     for (const item of note.actionItems) {
       await insertActionItem(recordingId, item.text, item.urgency);
     }
