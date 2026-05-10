@@ -184,14 +184,17 @@ export default function LibraryScreen() {
         presentationStyle="pageSheet"
         onRequestClose={() => { if (!isRecording) setShowRecorder(false); }}
       >
-        <SafeAreaView style={styles.modal}>
-          <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>
-              {isRecording ? 'Recording…' : 'New recording'}
-            </Text>
-            {!isRecording && (
-              <Pressable onPress={() => setShowRecorder(false)} hitSlop={12}>
-                <Ionicons name="close" size={24} color="#64748b" />
+        <View style={styles.sheet}>
+          {/* Top bar — sits just below iOS drag handle, no SafeAreaView needed */}
+          <View style={styles.sheetTop}>
+            {isRecording ? (
+              <View style={styles.recPill}>
+                <View style={styles.recDot} />
+                <Text style={styles.recLabel}>REC</Text>
+              </View>
+            ) : (
+              <Pressable onPress={() => setShowRecorder(false)} style={styles.closeBtn} hitSlop={16}>
+                <Ionicons name="close" size={18} color="#64748b" />
               </Pressable>
             )}
           </View>
@@ -200,16 +203,16 @@ export default function LibraryScreen() {
             <Waveform levels={levels} />
           </View>
 
-          {isRecording && (
-            <Text style={styles.timer}>{formatElapsed(elapsedMs)}</Text>
-          )}
+          <Text style={[styles.timer, !isRecording && styles.timerHidden]}>
+            {formatElapsed(elapsedMs)}
+          </Text>
 
           <RecordButton isRecording={isRecording} onPress={handleRecordToggle} />
 
           <Text style={styles.hint}>
-            {isRecording ? 'Tap to stop & analyse' : 'Tap to start'}
+            {isRecording ? 'Tap to stop' : 'Tap to record'}
           </Text>
-        </SafeAreaView>
+        </View>
       </Modal>
     </SafeAreaView>
   );
@@ -243,28 +246,69 @@ const styles = StyleSheet.create({
     shadowRadius: 10,
     elevation: 8,
   },
-  modal: { flex: 1, backgroundColor: '#f8fafc', padding: 24 },
-  modalHeader: {
-    flexDirection: 'row',
+  // Sheet modal — no SafeAreaView; pageSheet already sits below status bar.
+  // paddingTop: 20 clears the iOS drag indicator; paddingBottom: 48 clears home indicator.
+  sheet: {
+    flex: 1,
+    backgroundColor: '#f8fafc',
+    paddingHorizontal: 28,
+    paddingTop: 20,
+    paddingBottom: 48,
     alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 32,
   },
-  modalTitle: { fontSize: 20, fontWeight: '700', color: '#0f172a' },
-  waveformWrap: { flex: 1, justifyContent: 'center' },
-  timer: {
-    fontSize: 48,
-    fontWeight: '200',
-    color: '#1e293b',
-    textAlign: 'center',
-    letterSpacing: 3,
+  sheetTop: {
+    width: '100%',
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    height: 40,
+    alignItems: 'center',
     marginBottom: 8,
   },
+  closeBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#e2e8f0',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  recPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    backgroundColor: '#fef2f2',
+  },
+  recDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+    backgroundColor: '#ef4444',
+  },
+  recLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#ef4444',
+    letterSpacing: 1.2,
+  },
+  waveformWrap: { flex: 1, justifyContent: 'center', width: '100%' },
+  timer: {
+    fontSize: 56,
+    fontWeight: '200',
+    color: '#0f172a',
+    textAlign: 'center',
+    letterSpacing: 2,
+    marginBottom: 4,
+  },
+  timerHidden: { opacity: 0 },
   hint: {
-    fontSize: 14,
+    fontSize: 13,
     color: '#94a3b8',
     textAlign: 'center',
-    marginBottom: 40,
-    marginTop: 12,
+    marginTop: 10,
+    marginBottom: 8,
+    letterSpacing: 0.3,
   },
 });
