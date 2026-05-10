@@ -1,10 +1,10 @@
-import Anthropic from '@anthropic-ai/sdk';
 import type { AiMode, AudioFeatures } from '../types';
 import { getLlamaContext, isLlamaModelDownloaded } from './llamaManager';
 
 const CLOUD_MODEL = 'claude-haiku-4-5-20251001';
+const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages';
 
-// Stable instructions — cached across calls within the same session
+// Stable instructions — sent with cache_control so Anthropic caches them server-side
 const SYSTEM_PROMPT = `You are a meeting assistant. Given a transcript and audio analysis, output ONLY valid JSON with no markdown fences.
 
 Output this exact JSON shape:
@@ -47,7 +47,6 @@ const EMPTY_NOTE: GeneratedNote = { title: 'New Recording', summary: '', actionI
 
 function parseNote(raw: string): GeneratedNote {
   try {
-    // Strip any accidental markdown fences
     const json = raw.replace(/```(?:json)?/g, '').trim();
     const parsed = JSON.parse(json);
     return {
@@ -94,20 +93,25 @@ export async function generateNote(
 
   if (!apiKey?.trim()) return EMPTY_NOTE;
 
-  const client = new Anthropic({ apiKey, dangerouslyAllowBrowser: true });
-  const response = await client.messages.create({
-    model: CLOUD_MODEL,
-    max_tokens: 1024,
-    system: [
-      {
-        type: 'text',
-        text: SYSTEM_PROMPT,
-        cache_control: { type: 'ephemeral' },
-      },
-    ],
-    messages: [{ role: 'user', content: buildUserMessage(transcript, features) }],
+  // Call the Anthropic REST API directly with fetch — avoids bundling the SDK's
+  // Node.js-only credential-file readers which import node:fs.
+  const res = await fetch(ANTHROPIC_API_URL, {
+    method: 'POST',
+    headers: {
+      'x-api-key': apiKey,
+      'anthropic-version': '2023-06-01',
+      'anthropic-beta': 'prompt-caching-2024-07-31',
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: CLOUD_MODEL,
+      max_tokens: 1024,
+      system: [{ type: 'text', text: SYSTEM_PROMPT, cache_control: { type: 'ephemeral' } }],
+      messages: [{ role: 'user', content: buildUserMessage(transcript, features) }],
+    }),
   });
 
-  const block = response.content[0];
-  return block.type === 'text' ? parseNote(block.text) : EMPTY_NOTE;
+  const data = await res.json();
+  const block = data?.content?.[0];
+  return block?.type === 'text' ? parseNote(block.text) : EMPTY_NOTE;
 }
