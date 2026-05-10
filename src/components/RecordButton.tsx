@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
 import { Pressable, StyleSheet } from 'react-native';
+import * as Haptics from 'expo-haptics';
 import Animated, {
   Easing,
   useAnimatedStyle,
@@ -49,8 +50,15 @@ export function RecordButton({ isRecording, onPress }: Props) {
     borderRadius: radius.value,
   }));
 
+  const handlePress = () => {
+    Haptics.impactAsync(
+      isRecording ? Haptics.ImpactFeedbackStyle.Medium : Haptics.ImpactFeedbackStyle.Heavy,
+    );
+    onPress();
+  };
+
   return (
-    <Pressable onPress={onPress} style={styles.wrapper} hitSlop={16}>
+    <Pressable onPress={handlePress} style={styles.wrapper} hitSlop={16}>
       <Animated.View style={[styles.button, animStyle]} />
     </Pressable>
   );

@@ -24,6 +24,7 @@ export default function SettingsScreen() {
   const { aiMode, apiKey, setAiMode, setApiKey, setRecordings } = useRecordingStore();
   const [keyDraft, setKeyDraft] = useState(apiKey);
   const [keySaved, setKeySaved] = useState(false);
+  const [keyVerifying, setKeyVerifying] = useState(false);
   const [whisperStatus, setWhisperStatus] = useState<ModelStatus>('checking');
   const [downloadPct, setDownloadPct] = useState(0);
   const downloadingRef = useRef(false);
@@ -74,6 +75,26 @@ export default function SettingsScreen() {
     setApiKey(keyDraft);
     setKeySaved(true);
     setTimeout(() => setKeySaved(false), 2000);
+  };
+
+  const handleVerifyKey = async () => {
+    if (!keyDraft.trim()) return;
+    setKeyVerifying(true);
+    try {
+      const res = await fetch('https://api.anthropic.com/v1/models', {
+        headers: { 'x-api-key': keyDraft, 'anthropic-version': '2023-06-01' },
+      });
+      if (res.ok) {
+        Alert.alert('API key valid', 'Connection to Anthropic confirmed.');
+      } else {
+        const body = await res.json().catch(() => ({}));
+        Alert.alert('Invalid API key', body?.error?.message ?? `HTTP ${res.status}`);
+      }
+    } catch {
+      Alert.alert('Network error', 'Could not reach api.anthropic.com.');
+    } finally {
+      setKeyVerifying(false);
+    }
   };
 
   const handleClearData = () => {
@@ -132,12 +153,21 @@ export default function SettingsScreen() {
                 autoCapitalize="none"
                 autoCorrect={false}
               />
-              <Pressable
-                style={[styles.saveBtn, keySaved && styles.saveBtnDone]}
-                onPress={handleSaveKey}
-              >
-                <Text style={styles.saveBtnText}>{keySaved ? 'Saved ✓' : 'Save key'}</Text>
-              </Pressable>
+              <View style={styles.keyActions}>
+                <Pressable
+                  style={[styles.saveBtn, styles.keyBtn, keySaved && styles.saveBtnDone]}
+                  onPress={handleSaveKey}
+                >
+                  <Text style={styles.saveBtnText}>{keySaved ? 'Saved ✓' : 'Save key'}</Text>
+                </Pressable>
+                <Pressable
+                  style={[styles.saveBtn, styles.keyBtn, styles.verifyBtn]}
+                  onPress={handleVerifyKey}
+                  disabled={keyVerifying}
+                >
+                  <Text style={styles.saveBtnText}>{keyVerifying ? 'Checking…' : 'Verify'}</Text>
+                </Pressable>
+              </View>
             </View>
             <Text style={styles.hint}>
               Your key is stored securely on device and never sent anywhere other than Anthropic.
@@ -288,13 +318,19 @@ const styles = StyleSheet.create({
     color: '#0f172a',
     padding: 16,
   },
-  saveBtn: {
+  keyActions: {
+    flexDirection: 'row',
+    gap: 8,
     margin: 12,
+  },
+  keyBtn: { flex: 1, margin: 0 },
+  saveBtn: {
     backgroundColor: '#6366f1',
     borderRadius: 10,
     padding: 12,
     alignItems: 'center',
   },
+  verifyBtn: { backgroundColor: '#0ea5e9' },
   saveBtnDone: { backgroundColor: '#22c55e' },
   saveBtnText: { color: '#fff', fontWeight: '600', fontSize: 15 },
   dangerRow: { padding: 16, alignItems: 'center' },

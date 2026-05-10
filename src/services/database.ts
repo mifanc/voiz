@@ -80,6 +80,20 @@ export async function getAllRecordings(): Promise<Recording[]> {
   return db.getAllAsync<Recording>('SELECT * FROM recordings ORDER BY created_at DESC');
 }
 
+export async function getMaxUrgencies(): Promise<Record<number, number>> {
+  const db = await getDb();
+  const rows = await db.getAllAsync<{ recording_id: number; max_urgency: number }>(
+    `SELECT recording_id, MAX(urgency) AS max_urgency FROM (
+       SELECT recording_id, urgency FROM action_items
+       UNION ALL
+       SELECT recording_id, urgency FROM todos
+     ) GROUP BY recording_id`,
+  );
+  const map: Record<number, number> = {};
+  for (const row of rows) map[row.recording_id] = row.max_urgency;
+  return map;
+}
+
 export async function deleteRecording(id: number): Promise<void> {
   const db = await getDb();
   await db.runAsync('DELETE FROM action_items WHERE recording_id = ?', id);

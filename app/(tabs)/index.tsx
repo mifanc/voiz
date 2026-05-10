@@ -4,6 +4,7 @@ import {
   FlatList,
   Modal,
   Pressable,
+  RefreshControl,
   SafeAreaView,
   StyleSheet,
   Text,
@@ -24,6 +25,7 @@ import {
   deleteRecording,
   finaliseRecording,
   getAllRecordings,
+  getMaxUrgencies,
   insertActionItem,
   insertNote,
   insertRecording,
@@ -42,7 +44,8 @@ async function runAiPipeline(
   meteringData: number[],
   aiMode: 'local' | 'cloud',
   apiKey: string,
-  onDone: (title: string) => void,
+  onDone: (title: string, maxUrgency: number) => void,
+  onError: (msg: string) => void,
 ): Promise<void> {
   try {
     const { text, segments } = await transcribe(uri);
@@ -56,9 +59,17 @@ async function runAiPipeline(
       await insertTodo(recordingId, todo.text, todo.urgency);
     }
     await finaliseRecording(recordingId, note.title || 'New Recording');
-    onDone(note.title || 'New Recording');
-  } catch {
-    // Pipeline errors are non-fatal; recording is already saved
+    const maxUrgency = Math.max(
+      0,
+      ...note.actionItems.map((i) => i.urgency),
+      ...note.todos.map((t) => t.urgency),
+    );
+    onDone(note.title || 'New Recording', maxUrgency);
+  } catch (e) {
+    await finaliseRecording(recordingId, 'New Recording');
+    onDone('New Recording', 0);
+    const msg = e instanceof Error ? e.message : String(e);
+    onError(aiMode === 'cloud' ? `Cloud AI failed: ${msg}` : `On-device AI failed: ${msg}`);
   }
 }
 
@@ -70,12 +81,26 @@ export default function LibraryScreen() {
   const [isRecording, setIsRecording] = useState(false);
   const [elapsedMs, setElapsedMs] = useState(0);
   const [levels, setLevels] = useState<number[]>([]);
+  const [urgencies, setUrgencies] = useState<Record<number, number>>({});
+  const [refreshing, setRefreshing] = useState(false);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  const loadRecordings = useCallback(async () => {
+    const [recs, urgs] = await Promise.all([getAllRecordings(), getMaxUrgencies()]);
+    setRecordings(recs);
+    setUrgencies(urgs);
+  }, []);
+
   useEffect(() => {
-    getAllRecordings().then(setRecordings);
+    loadRecordings();
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
   }, []);
+
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await loadRecordings();
+    setRefreshing(false);
+  }, [loadRecordings]);
 
   const startTimer = () => {
     setElapsedMs(0);
@@ -108,9 +133,14 @@ export default function LibraryScreen() {
         setShowRecorder(false);
         setLevels([]);
 
-        runAiPipeline(id, result.uri, result.durationMs, result.meteringData, aiMode, apiKey, (title) => {
-          updateRecording(id, { title, processed_at: new Date().toISOString() });
-        });
+        runAiPipeline(
+          id, result.uri, result.durationMs, result.meteringData, aiMode, apiKey,
+          (title, maxUrgency) => {
+            updateRecording(id, { title, processed_at: new Date().toISOString() });
+            setUrgencies((prev) => ({ ...prev, [id]: maxUrgency }));
+          },
+          (msg) => Alert.alert('Processing failed', msg),
+        );
       } catch {
         Alert.alert('Error', 'Could not save recording. Please try again.');
       }
@@ -158,6 +188,9 @@ export default function LibraryScreen() {
         data={recordings}
         keyExtractor={(r) => String(r.id)}
         contentContainerStyle={styles.list}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor="#6366f1" />
+        }
         ListEmptyComponent={
           <View style={styles.empty}>
             <Ionicons name="mic-outline" size={52} color="#dde1e7" />
@@ -168,6 +201,7 @@ export default function LibraryScreen() {
         renderItem={({ item }) => (
           <NoteCard
             recording={item}
+            highestUrgency={urgencies[item.id]}
             onPress={() => router.push(`/note/${item.id}`)}
             onLongPress={() => handleDelete(item)}
           />

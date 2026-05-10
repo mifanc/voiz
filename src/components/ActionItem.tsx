@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
+import * as Haptics from 'expo-haptics';
 import { UrgencyBadge } from './UrgencyBadge';
 import type { ActionItem, Todo } from '../types';
 
@@ -12,7 +13,10 @@ export function ActionItemRow({ item, onToggle }: Props) {
   return (
     <Pressable
       style={({ pressed }) => [styles.row, pressed && { opacity: 0.7 }]}
-      onPress={() => onToggle(item.id, !item.completed)}
+      onPress={() => {
+        Haptics.selectionAsync();
+        onToggle(item.id, !item.completed);
+      }}
     >
       <View style={[styles.checkbox, item.completed && styles.checkboxDone]}>
         {item.completed && <Text style={styles.checkmark}>✓</Text>}
