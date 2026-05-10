@@ -1,4 +1,5 @@
 import type { AiMode, AudioFeatures } from '../types';
+import { getLlamaContext, isLlamaModelDownloaded } from './llamaManager';
 
 export interface GeneratedNote {
   summary: string;
@@ -30,13 +31,55 @@ Urgency: 1=low, 2=minor, 3=normal, 4=high, 5=critical.
 Combine audio signals and language cues to score urgency accurately.`;
 }
 
-// Phase 3: swap stub with llama.rn (local) call.
-// Phase 5: add cloud branch using @anthropic-ai/sdk when aiMode === 'cloud'.
+const EMPTY_NOTE: GeneratedNote = { title: 'New Recording', summary: '', actionItems: [], todos: [] };
+
+function parseNote(raw: string): GeneratedNote {
+  try {
+    // Strip any accidental markdown fences
+    const json = raw.replace(/```(?:json)?/g, '').trim();
+    const parsed = JSON.parse(json);
+    return {
+      title: String(parsed.title || 'New Recording').slice(0, 80),
+      summary: String(parsed.summary || ''),
+      actionItems: Array.isArray(parsed.action_items)
+        ? parsed.action_items.map((i: { text?: string; urgency?: number }) => ({
+            text: String(i.text ?? ''),
+            urgency: Math.min(5, Math.max(1, Number(i.urgency) || 3)),
+          }))
+        : [],
+      todos: Array.isArray(parsed.todos)
+        ? parsed.todos.map((t: { text?: string; urgency?: number }) => ({
+            text: String(t.text ?? ''),
+            urgency: Math.min(5, Math.max(1, Number(t.urgency) || 3)),
+          }))
+        : [],
+    };
+  } catch {
+    return EMPTY_NOTE;
+  }
+}
+
 export async function generateNote(
-  _transcript: string,
-  _features: AudioFeatures,
-  _mode: AiMode,
+  transcript: string,
+  features: AudioFeatures,
+  mode: AiMode,
   _apiKey?: string,
 ): Promise<GeneratedNote> {
-  return { title: 'New Recording', summary: '', actionItems: [], todos: [] };
+  if (!transcript.trim()) return EMPTY_NOTE;
+
+  if (mode === 'local') {
+    if (!(await isLlamaModelDownloaded())) return EMPTY_NOTE;
+
+    const ctx = await getLlamaContext();
+    const result = await ctx.completion({
+      prompt: buildPrompt(transcript, features),
+      n_predict: 512,
+      temperature: 0.1,
+      stop: ['</s>', '<|end|>', '\n\n\n'],
+    });
+    return parseNote(result.text);
+  }
+
+  // Phase 5: cloud branch using @anthropic-ai/sdk
+  return EMPTY_NOTE;
 }

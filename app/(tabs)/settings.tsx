@@ -14,6 +14,7 @@ import * as SecureStore from 'expo-secure-store';
 import { useRecordingStore } from '../../src/stores/useRecordingStore';
 import { clearAllData } from '../../src/services/database';
 import { downloadModel, isModelDownloaded } from '../../src/services/whisperManager';
+import { downloadLlamaModel, isLlamaModelDownloaded } from '../../src/services/llamaManager';
 
 const API_KEY_STORE = 'anthropic_api_key';
 
@@ -27,8 +28,13 @@ export default function SettingsScreen() {
   const [downloadPct, setDownloadPct] = useState(0);
   const downloadingRef = useRef(false);
 
+  const [llamaStatus, setLlamaStatus] = useState<ModelStatus>('checking');
+  const [llamaDownloadPct, setLlamaDownloadPct] = useState(0);
+  const llamaDownloadingRef = useRef(false);
+
   useEffect(() => {
     isModelDownloaded().then((ready) => setWhisperStatus(ready ? 'ready' : 'none'));
+    isLlamaModelDownloaded().then((ready) => setLlamaStatus(ready ? 'ready' : 'none'));
   }, []);
 
   const handleDownloadWhisper = async () => {
@@ -44,6 +50,22 @@ export default function SettingsScreen() {
       Alert.alert('Download failed', 'Check your internet connection and try again.');
     } finally {
       downloadingRef.current = false;
+    }
+  };
+
+  const handleDownloadLlama = async () => {
+    if (llamaDownloadingRef.current) return;
+    llamaDownloadingRef.current = true;
+    setLlamaStatus('downloading');
+    setLlamaDownloadPct(0);
+    try {
+      await downloadLlamaModel((pct) => setLlamaDownloadPct(pct));
+      setLlamaStatus('ready');
+    } catch {
+      setLlamaStatus('none');
+      Alert.alert('Download failed', 'Check your internet connection and try again.');
+    } finally {
+      llamaDownloadingRef.current = false;
     }
   };
 
@@ -149,9 +171,27 @@ export default function SettingsScreen() {
           <View style={[styles.modelRow, styles.divider]}>
             <View style={styles.modelInfo}>
               <Text style={styles.rowTitle}>Phi-3 Mini (Notes)</Text>
-              <Text style={styles.rowSub}>Q4 GGUF · ~2.2 GB</Text>
+              <Text style={styles.rowSub}>Q4_K_M GGUF · ~2.2 GB</Text>
+              {llamaStatus === 'downloading' && (
+                <View style={styles.progressTrack}>
+                  <View style={[styles.progressFill, { width: `${llamaDownloadPct}%` }]} />
+                </View>
+              )}
             </View>
-            <Text style={styles.notReady}>Phase 3</Text>
+            {llamaStatus === 'checking' && (
+              <Text style={styles.notReady}>···</Text>
+            )}
+            {llamaStatus === 'none' && (
+              <Pressable style={styles.downloadBtn} onPress={handleDownloadLlama}>
+                <Text style={styles.downloadBtnText}>Download</Text>
+              </Pressable>
+            )}
+            {llamaStatus === 'downloading' && (
+              <Text style={styles.progressPct}>{llamaDownloadPct}%</Text>
+            )}
+            {llamaStatus === 'ready' && (
+              <Text style={styles.ready}>Ready</Text>
+            )}
           </View>
         </View>
         <Text style={styles.hint}>Whisper runs fully on-device — audio never leaves your phone.</Text>
