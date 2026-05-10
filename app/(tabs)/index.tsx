@@ -185,33 +185,31 @@ export default function LibraryScreen() {
         onRequestClose={() => { if (!isRecording) setShowRecorder(false); }}
       >
         <View style={styles.sheet}>
-          {/* Top bar — sits just below iOS drag handle, no SafeAreaView needed */}
-          <View style={styles.sheetTop}>
-            {isRecording ? (
-              <View style={styles.recPill}>
-                <View style={styles.recDot} />
-                <Text style={styles.recLabel}>REC</Text>
-              </View>
-            ) : (
-              <Pressable onPress={() => setShowRecorder(false)} style={styles.closeBtn} hitSlop={16}>
-                <Ionicons name="close" size={18} color="#64748b" />
-              </Pressable>
-            )}
-          </View>
-
-          {/* Everything centred as one unit */}
-          <View style={styles.content}>
-            <View style={styles.waveformWrap}>
-              <Waveform levels={levels} />
+          {/* Close/REC absolutely positioned — excluded from flex flow */}
+          {isRecording ? (
+            <View style={styles.recPill}>
+              <View style={styles.recDot} />
+              <Text style={styles.recLabel}>REC</Text>
             </View>
-            <Text style={[styles.timer, !isRecording && styles.timerHidden]}>
-              {formatElapsed(elapsedMs)}
-            </Text>
-            <RecordButton isRecording={isRecording} onPress={handleRecordToggle} />
-            <Text style={styles.hint}>
-              {isRecording ? 'Tap to stop' : 'Tap to record'}
-            </Text>
+          ) : (
+            <Pressable onPress={() => setShowRecorder(false)} style={styles.closeBtn} hitSlop={16}>
+              <Ionicons name="close" size={18} color="#64748b" />
+            </Pressable>
+          )}
+
+          {/* Equal flex spacers sandwich the content, guaranteeing vertical centre */}
+          <View style={styles.spacer} />
+          <View style={styles.waveformWrap}>
+            <Waveform levels={levels} />
           </View>
+          <Text style={[styles.timer, !isRecording && styles.timerHidden]}>
+            {formatElapsed(elapsedMs)}
+          </Text>
+          <RecordButton isRecording={isRecording} onPress={handleRecordToggle} />
+          <Text style={styles.hint}>
+            {isRecording ? 'Tap to stop' : 'Tap to record'}
+          </Text>
+          <View style={styles.spacer} />
         </View>
       </Modal>
     </SafeAreaView>
@@ -248,20 +246,21 @@ const styles = StyleSheet.create({
   },
   // Sheet modal — no SafeAreaView; pageSheet already sits below status bar.
   // paddingTop: 20 clears the iOS drag indicator; paddingBottom: 48 clears home indicator.
+  // alignItems/justifyContent centre the waveform+timer+button+hint as one unit.
   sheet: {
     flex: 1,
     backgroundColor: '#f8fafc',
+    paddingHorizontal: 28,
     paddingTop: 20,
     paddingBottom: 48,
-  },
-  sheetTop: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    paddingHorizontal: 28,
-    height: 44,
     alignItems: 'center',
+    gap: 8,
   },
+  spacer: { flex: 1 },
   closeBtn: {
+    position: 'absolute',
+    top: 20,
+    right: 28,
     width: 32,
     height: 32,
     borderRadius: 16,
@@ -270,6 +269,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   recPill: {
+    position: 'absolute',
+    top: 26,
+    right: 28,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
@@ -290,16 +292,9 @@ const styles = StyleSheet.create({
     color: '#ef4444',
     letterSpacing: 1.2,
   },
-  content: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 28,
-    gap: 4,
-  },
   waveformWrap: {
-    width: '100%',
-    marginBottom: 12,
+    alignSelf: 'stretch',
+    marginBottom: 8,
   },
   timer: {
     fontSize: 52,
